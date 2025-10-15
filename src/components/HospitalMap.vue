@@ -112,7 +112,7 @@ onMounted(async () => {
 
 	for (const doc of querySnapshot.docs) {
 		const { ADDR, HOSPITAL_NM } = doc.data()
-		alert("address: " + ADDR  + ", label: " + HOSPITAL_NM );
+		//alert("address: " + ADDR  + ", label: " + HOSPITAL_NM );
 		const coords = await geocodeAddress(ADDR)
 		if (!coords) {
 		console.warn(`주소 변환 실패: ${address}`)
