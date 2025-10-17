@@ -15,7 +15,10 @@
 		<div class="layout">
 			<section class="left">
 				<h2>병원 등록</h2>
-				<HospitalForm @added="handleAdded" />
+				<HospitalForm v-if="showForm" @added="handleAdded" @close="showForm = false"/>
+				<button v-else class="show-btn" @click="showForm = true">
+					병원 등록 폼 열기
+				</button>
 				<!--<div class="list">
 					<h3>등록된 병원 ({{ hospitals.length }}개)</h3>
 					<ul>
@@ -42,7 +45,7 @@
 import HospitalForm from './components/HospitalForm.vue'
 import HospitalMap from './components/HospitalMap.vue'
 import { useFirebaseHospitals } from './composables/useFirebaseHospitals.js'
-
+import { ref } from 'vue'
 const { hospitals, addHospital, deleteHospital, loading, error } = useFirebaseHospitals()
 
 async function handleAdded(h) {
@@ -53,6 +56,7 @@ async function handleAdded(h) {
 		console.error('병원 추가 실패:', err)
 	}
 }
+const showForm = ref(true)
 
 
 async function handleMapDeleteHospital(h) {
@@ -112,6 +116,19 @@ async function handleMapDeleteHospital(h) {
 }
 .list li {
 	margin: 6px 0;
+}
+.show-btn {
+	position: fixed;
+	right: 20px;
+	bottom: 20px;
+	background-color: #1976d2;
+	color: white;
+	border: none;
+	border-radius: 6px;
+	padding: 10px 16px;
+	cursor: pointer;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+	z-index: 9999;
 }
 @media (max-width: 900px) {
 	.layout {

@@ -42,14 +42,18 @@
 		</label>
 		<button :disabled="submitting">{{ submitting ? '등록 중…' : '등록' }}</button>
 		<p v-if="error" class="error">{{ error }}</p>
+
+		<button type="button" class="hide-btn" @click="emit('close')">
+			숨기기
+		</button>
 	</form>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { loadKakao } from '../composables/useKakaoLoader.js'
-
-const emit = defineEmits(['added'])
+const emit = defineEmits(['added', 'close']) // `close` 이벤트 추가
+///const emit = defineEmits(['added'])
 
 const selectedYear = ref('2024')
 const name = ref('')
@@ -236,6 +240,25 @@ button:disabled {
 .address-detail {
 	font-size: 12px;
 	color: #666;
+}
+
+.hide-btn {
+	position: fixed;
+	right: 20px;
+	bottom: 20px;
+	background-color: #ccc;
+	color: #333;
+	border: none;
+	border-radius: 6px;
+	padding: 10px 16px;
+	cursor: pointer;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+	transition: background-color 0.2s;
+	z-index: 9999;
+}
+
+.hide-btn:hover {
+	background-color: #bbb;
 }
 </style>
 
