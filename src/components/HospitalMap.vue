@@ -9,7 +9,7 @@
 			<h4>병원 목록</h4>
 			<div class="list-items">
 				<div 
-					v-for="hospital in hospitals" 
+					v-for="hospital in documents" 
 					:key="hospital.id"
 					class="list-item"
 					@click="selectHospital(hospital)"
@@ -95,6 +95,7 @@ function deleteHospital(hospital) {
 		emit('deleteHospital', hospital)
 	}
 }
+const documents = ref([]);
 
 onMounted(async () => {
 	 // 1. Kakao SDK 로드
@@ -107,7 +108,10 @@ onMounted(async () => {
 	})
 
 	// 3. Firebase 주소 불러오기
-	const querySnapshot = await getDocs(collection(db, 'hospitalData'))
+	const querySnapshot = await getDocs(collection(db, 'hospitalData'));
+
+	documents.value = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
 	const bounds = new kakao.maps.LatLngBounds()
 
 	for (const doc of querySnapshot.docs) {

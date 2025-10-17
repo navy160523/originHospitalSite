@@ -1,5 +1,5 @@
 import { ref, onMounted, onUnmounted } from 'vue'
-import { db } from '../firebase/config.js' // 'database' 대신 Firestore 'db' 인스턴스 import
+import { db , auth} from '../firebase/config.js' // 'database' 대신 Firestore 'db' 인스턴스 import
 import { 
   collection, 
   onSnapshot, 
@@ -38,7 +38,7 @@ export function useFirebaseHospitals() {
       snapshot.forEach((doc) => {
         // Firestore 문서는 .data() 메서드로 데이터에 접근합니다.
         allHospitals.push({
-          id: doc.id, // 문서 ID는 id 속성으로 별도 저장
+          docid: doc.docid, // 문서 ID는 id 속성으로 별도 저장
           ...doc.data()
         })
       })
@@ -95,6 +95,7 @@ export function useFirebaseHospitals() {
 
   // 병원 삭제
   async function deleteHospital(hospitalId) {
+    console.log('Deleting hospital with ID:', hospitalId);
     const hospitalDocRef =  doc(db, 'hospitalData', hospitalId);
     try {
       loading.value = true 

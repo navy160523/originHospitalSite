@@ -1,7 +1,7 @@
 // Firebase 설정
-import { initializeApp } from 'firebase/app'
-//import { getDatabase } from 'firebase/database'
+import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 // Firebase 프로젝트 설정
 // Firebase 콘솔에서 프로젝트 설정 > 일반 > 웹 앱에서 복사한 설정을 여기에 입력하세요
@@ -17,8 +17,8 @@ const firebaseConfig = {
 
 // Firebase 앱 초기화
 const app = initializeApp(firebaseConfig)
-
 // Realtime Database 인스턴스 생성
 //export const database = getDatabase(app)
 export const db = getFirestore(app)
+export const auth = getAuth(app);
 export default app

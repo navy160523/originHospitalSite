@@ -114,7 +114,7 @@ async function onSubmit() {
 				const { y, x } = result[0] // y: lat, x: lng
 				
 				emit('added', {
-					id: `${Date.now()}`,
+					
 					YEAR: selectedYear.value,
 					HOSPITAL_NM: name.value,
 					ADDR: address.value,
