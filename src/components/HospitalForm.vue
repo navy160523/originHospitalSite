@@ -3,7 +3,7 @@
 		<label>
 			<span>등록 연도</span>
 			<select v-model="selectedYear" required>
-				<option value="">연도를 선택하세요</option>
+				<!-- <option value="">연도를 선택하세요</option> -->
 				<option value="2024">2024년</option>
 				<option value="2025">2025년</option>
 			</select>
@@ -51,7 +51,7 @@ import { loadKakao } from '../composables/useKakaoLoader.js'
 
 const emit = defineEmits(['added'])
 
-const selectedYear = ref('')
+const selectedYear = ref('2024')
 const name = ref('')
 const address = ref('')
 const addressSearch = ref('')
@@ -62,31 +62,58 @@ const error = ref('')
 
 // 주소 검색 함수
 async function searchAddress() {
-	if (addressSearch.value.length < 2) {
+	if (!addressSearch.value || addressSearch.value.length < 2) {
 		addressResults.value = []
 		return
 	}
-	
+
 	try {
 		const { kakao } = await loadKakao()
 		const places = new kakao.maps.services.Places()
-		
+		const geocoder = new kakao.maps.services.Geocoder()
+
+		// 1. 키워드 기반 검색 (장소명, 병원명 등)
 		places.keywordSearch(addressSearch.value, (data, status) => {
 			if (status === kakao.maps.services.Status.OK) {
-				// 병원 관련 장소만 필터링
-				const hospitalResults = data.filter(place => 
-					place.category_name.includes('의료') || 
-					place.place_name.includes('병원') ||
-					place.place_name.includes('의원') ||
-					place.place_name.includes('클리닉')
-				)
-				addressResults.value = hospitalResults.slice(0, 5) // 최대 5개 결과
-			} else {
-				addressResults.value = []
+				let hospitalResults = data.filter(place => {
+					const name = place.place_name
+					const category = place.category_name
+
+					return (
+						category.includes('의료') || category.includes('병원') ||
+						category.includes('장애인복지시설') || category.includes('직업전문교육') || category.includes('사회복지시설') || category.includes('사회복지단체') ||
+						name.includes('병원') || name.includes('의원') ||
+						name.toLowerCase().includes('clinic') || name.includes('센터')
+					)
+				})
+
+				// 2. 병원 관련 결과가 충분하면 그대로 사용
+				if (hospitalResults.length > 0) {
+					addressResults.value = hospitalResults.slice(0, 50)
+					return
+				}
 			}
+
+			// 3. 병원이 없거나 키워드 검색 실패 → 주소 검색 시도
+			geocoder.addressSearch(addressSearch.value, (result, status) => {
+				if (status === kakao.maps.services.Status.OK && result.length > 0) {
+					// 주소 검색 결과를 가짜 장소 데이터 형식으로 변환
+					const addressPlace = result.map(item => ({
+						place_name: '(주소 검색 결과)',
+						address_name: item.address_name,
+						y: item.y,
+						x: item.x,
+						category_name: '주소'
+					}))
+
+					addressResults.value = addressPlace
+				} else {
+					addressResults.value = []
+				}
+			})
 		})
 	} catch (e) {
-		console.error('주소 검색 오류:', e)
+		console.error('검색 오류:', e)
 		addressResults.value = []
 	}
 }

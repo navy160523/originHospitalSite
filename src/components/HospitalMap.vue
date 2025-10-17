@@ -7,9 +7,12 @@
 		<div ref="mapEl" class="map"></div>
 		<div class="hospital-list">
 			<h4>병원 목록</h4>
+			<h6>서울-나눔터(5명)/서울-누리봄(1명)/서울-새오름터(2명)/서울-양천아이존(3명)/서울-한림대부속한강성심병원(2명)/부산-하모니하우스(1명) 제외</h6>
+			<input type="text" placeholder="병원 이름으로 검색(미구현)" />
+			<br/><br/>
 			<div class="list-items">
 				<div 
-					v-for="hospital in documents" 
+					v-for="hospital in sortedDocuments" 
 					:key="hospital.id"
 					class="list-item"
 					@click="selectHospital(hospital)"
@@ -29,7 +32,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { onMounted, computed, onUnmounted, ref, watch } from 'vue'
 import { getFirestore, collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase/config.js' // 'database' 대신 Firestore 'db' 인스턴스 import
 import { loadKakao, geocodeAddress } from '../composables/useKakaoLoader.js'
@@ -38,6 +41,14 @@ const props = defineProps({
 		type: Array,
 		default: () => []
 	}
+})
+const documents = ref([]);
+
+// 병원 이름 가나다순 정렬된 computed
+const sortedDocuments = computed(() => {
+  return [...documents.value].sort((a, b) => 
+    a.HOSPITAL_NM.localeCompare(b.HOSPITAL_NM, 'ko')
+  )
 })
 
 const emit = defineEmits(['deleteHospital'])
@@ -86,7 +97,21 @@ function renderMarkers() {
 }
 
 function selectHospital(hospital) {
-	selectedHospital.value = selectedHospital.value?.id === hospital.id ? null : hospital
+	//alert(hospital.HOSPITAL_NM + ' 선택됨'+ hospital.id + "||" + hospital.lat + "," + hospital.lng)
+	// selectedHospital.value = selectedHospital.value?.id === hospital.id ? null : hospital
+	// if (selectedHospital.value?.id === hospital.id) {
+	// 	selectedHospital.value = null
+	// } else {
+	// 	selectedHospital.value = hospital
+		//alert("외부");
+		// 지도 확대 및 중심 이동
+		if (map && kakaoRef) {
+			//alert("내부");
+			const latLng = new kakaoRef.maps.LatLng(hospital.lat, hospital.lng)
+			map.setLevel(4) // 확대 레벨 (숫자가 작을수록 더 확대됨)
+			map.setCenter(latLng)
+		}
+	// }
 }
 
 
@@ -95,12 +120,12 @@ function deleteHospital(hospital) {
 		emit('deleteHospital', hospital)
 	}
 }
-const documents = ref([]);
+
 
 onMounted(async () => {
 	 // 1. Kakao SDK 로드
 	const { kakao } = await loadKakao()
-
+	kakaoRef = kakao
 	// 2. 지도 생성
 	map = new kakao.maps.Map(mapEl.value, {
 		center: new kakao.maps.LatLng(37.5665, 126.9780), // 초기 위치: 서울
@@ -113,64 +138,90 @@ onMounted(async () => {
 	documents.value = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
 	const bounds = new kakao.maps.LatLngBounds()
+	const hospitalData = {};
 
 	for (const doc of querySnapshot.docs) {
-		const { ADDR, HOSPITAL_NM } = doc.data()
-		//alert("address: " + ADDR  + ", label: " + HOSPITAL_NM );
-		const coords = await geocodeAddress(ADDR)
-		if (!coords) {
-		console.warn(`주소 변환 실패: ${address}`)
-		continue
+		const { ADDR, HOSPITAL_NM, NUM, YEAR } = doc.data();
+		
+		// 주소가 없으면 건너뜁니다.
+		if (!ADDR) {
+			console.warn('주소가 누락된 데이터가 있습니다.');
+			continue;
 		}
 
-		const position = new kakao.maps.LatLng(coords.lat, coords.lng)
+		// 주소(ADDR)를 키로 사용하여 병원 데이터를 그룹화합니다.
+		if (!hospitalData[ADDR]) {
+			hospitalData[ADDR] = {
+				HOSPITAL_NM: HOSPITAL_NM,
+				ADDR: ADDR,
+				years: {} // 연도별 모집인원을 저장할 객체
+			};
+		}
+		hospitalData[ADDR].years[YEAR] = NUM;
+	}
 
-		// 4. 마커 생성
+	// 그룹화된 데이터를 기반으로 마커와 인포윈도우 생성
+	for (const addr in hospitalData) {
+		const hospital = hospitalData[addr];
+
+		// 주소 변환
+		const coords = await geocodeAddress(hospital.ADDR);
+		if (!coords) {
+			console.warn(`주소 변환 실패: ${hospital.ADDR}`);
+			continue;
+		}
+
+		const position = new kakao.maps.LatLng(coords.lat, coords.lng);
+
+		// 마커 생성
 		const marker = new kakao.maps.Marker({
-		map,
-		position
-		})
+			map,
+			position
+		});
 
-		// 5. 인포윈도우
+		// 인포윈도우 콘텐츠 생성
+		let contents = '<div style="width:200px;text-align:center;padding:0px 0;">';
+		contents += '<strong>' + hospital.HOSPITAL_NM + '</strong><br/>' + hospital.ADDR;
+
+		// 그룹화된 연도별 데이터를 표시
+		for (const year in hospital.years) {
+			contents += `<br/>${year} 모집인원: ${hospital.years[year]}명`;
+		}
+		
+		contents += '</div>';
+
+		// 인포윈도우 생성
 		const infowindow = new kakao.maps.InfoWindow({
-		content: `<div style="width:150px;text-align:center;padding:6px 0;">${HOSPITAL_NM }</div>`
-		})
-		infowindow.open(map, marker)
+			content: contents
+		});
 
-		// 6. 지도 범위 확장
-		bounds.extend(position)
+		// 마커에 클릭 이벤트 리스너 등록 (클릭 시 인포윈도우 표시)
+		// kakao.maps.event.addListener(marker, 'click', function() {
+		// 	infowindow.open(map, marker);
+		// });
+		let isOpen = false;
+		kakao.maps.event.addListener(marker, 'click', function() {
+			if (isOpen) {
+				infowindow.close();
+				isOpen = false;
+			} else {
+				infowindow.open(map, marker);
+				isOpen = true;
+			}
+		});
+
+
+		// 인포윈도우를 기본적으로 열기
+		//infowindow.open(map, marker);
+		
+		// 지도 범위 확장
+		bounds.extend(position);
 	}
 
 	// 7. 마커가 하나 이상일 때 지도를 범위에 맞게 조정
 	if (!bounds.isEmpty()) {
 		map.setBounds(bounds)
 	}
-
-	// try {
-	// 	const { kakao } = await loadKakao()
-	// 	kakaoRef = kakao
-		
-	// 	if (mapEl.value) {
-	// 		map = new kakao.maps.Map(mapEl.value, {
-	// 			center: new kakao.maps.LatLng(37.5665, 126.9780),
-	// 			level: 7,
-	// 		})
-	// 	}
-	// 	renderMarkers()
-	// } catch (error) {
-	// 	console.error('카카오 지도 로드 실패:', error)
-	// 	// 에러가 발생하면 간단한 메시지 표시
-	// 	if (mapEl.value) {
-	// 		mapEl.value.innerHTML = `
-	// 			<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f5f5f5; border-radius: 8px; color: #666;">
-	// 				<div style="text-align: center;">
-	// 					<p>카카오 지도를 불러올 수 없습니다.</p>
-	// 					<p style="font-size: 12px;">JavaScript 키를 확인해주세요.</p>
-	// 				</div>
-	// 			</div>
-	// 		`
-	// 	}
-	// }
 })
 
 onUnmounted(() => {

@@ -95,13 +95,11 @@ export function useFirebaseHospitals() {
 
   // 병원 삭제
   async function deleteHospital(hospitalId) {
-    console.log('Deleting hospital with ID:', hospitalId);
+    
     const hospitalDocRef =  doc(db, 'hospitalData', hospitalId);
     try {
       loading.value = true 
       error.value = null
-      
-      // 특정 문서(Document) 참조를 가져옵니다.
       
       // deleteDoc을 사용하여 문서 삭제
       await deleteDoc(hospitalDocRef)
